@@ -1,14 +1,19 @@
-FROM nginx:alpine
+FROM node:alpine
 
-# Copy the nginx configuration
-COPY ./docker/default.conf.template /etc/nginx/templates/default.conf.template
+RUN addgroup -S appgroup && \
+  adduser -S appuser -G appgroup && \
+  mkdir -p /home/appuser/app && \
+  chown appuser:appgroup /home/appuser/app
+USER appuser
 
-# Copy the built react application to the nginx folder
-COPY ./dist /usr/share/nginx/html
+RUN yarn config set prefix ~/.yarn && \
+  yarn global add serve
 
-# Required NGINX env variables
-ENV NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx/conf.d
+WORKDIR /home/appuser/app
+COPY --chown=appuser:appgroup package.json yarn.lock ./
+RUN yarn install --frozen-lockfile
+COPY --chown=appuser:appgroup . .
+RUN yarn build
 
-# Default env variables
-ENV PORT=80
-ENV HOST=0.0.0.0
+EXPOSE 3000
+CMD ["/home/appuser/.yarn/bin/serve", "-s", "dist", "-l", "3000"]
